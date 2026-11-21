@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>StacherQuick</h1>
+    <span id="health" class="dot" title="Checking helper…"></span>
+  </header>
+
+  <div id="updateBanner" class="banner" hidden>
+    <span id="updateText">yt-dlp update available</span>
+    <button id="updateBtn" class="small primary">Update</button>
+  </div>
+
+  <section class="card">
+    <div class="label">Save to</div>
+    <div class="seg" role="radiogroup">
+      <button data-mode="folder" role="radio">Set folders</button>
+      <button data-mode="ask" role="radio">Ask every time</button>
+    </div>
+    <div id="folders">
+      <div class="folder">
+        <span class="fkind">Video</span>
+        <span id="videoPath" class="path" title="">Not set</span>
+        <button id="pickVideo" class="small">Change</button>
+      </div>
+      <div class="folder">
+        <span class="fkind">Audio</span>
+        <span id="audioPath" class="path">Same as video</span>
+        <button id="pickAudio" class="small">Change</button>
+        <button id="resetAudio" class="small ghost" title="Save audio to the video folder">×</button>
+      </div>
+    </div>
+    <div id="askNote" class="note" hidden>A folder picker opens for each download.</div>
+  </section>
+
+  <section class="card">
+    <div class="label">Login cookies</div>
+    <div class="row">
+      <select id="cookieSource">
+        <option value="none">Off</option>
+        <option value="firefox">Firefox</option>
+        <option value="brave">Brave</option>
+        <option value="chrome">Chrome</option>
+        <option value="edge">Edge</option>
+        <option value="opera">Opera / Opera GX</option>
+        <option value="vivaldi">Vivaldi</option>
+        <option value="chromium">Chromium</option>
+        <option value="whale">Whale</option>
+        <option value="file">cookies.txt file…</option>
+      </select>
+    </div>
+    <div id="cookieFileRow" class="folder" hidden>
+      <span id="cookieFilePath" class="path">No file chosen</span>
+      <button id="pickCookieFile" class="small">Choose</button>
+    </div>
+    <label class="check" id="cookieAlwaysRow" hidden>
+      <input type="checkbox" id="cookieAlways"> Use on every download
+    </label>
+    <div id="cookieNote" class="note">For age-restricted, members-only and private videos. Used only when a video needs sign-in.</div>
+  </section>
+
+  <section class="card slim">
+    <div class="row">
+      <span><kbd id="kbd">Alt+Shift+D</kbd> downloads the open video as <b id="lastFmt">MP4</b> (last used)</span>
+      <button id="shortcuts" class="link">Change</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="label row">Recent <button id="clear" class="link">Clear finished</button></div>
+    <ul id="jobs"></ul>
+    <div id="empty" class="note">Right-click a YouTube video → <b>Download with Stacher</b>, or use <b>Quick download</b> in any ⋮ menu or the player's right-click menu.</div>
+  </section>
+
+  <footer id="ytdlpLine" class="note"></footer>
+  <script src="popup.js"></script>
+</body>
+</html>

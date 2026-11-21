@@ -1,0 +1,75 @@
+/* Own colour tokens. Dark mode comes from data-sq-dark, which content.js sets from the
+   page's real background colour (YouTube's own flags aren't reliable). */
+:root {
+  --sq-fg: #0f0f0f; --sq-fg2: #606060; --sq-chip: rgba(0,0,0,.05); --sq-chip-hover: rgba(0,0,0,.1);
+  --sq-pop: #ffffff; --sq-line: rgba(0,0,0,.1); --sq-accent: #e53935; --sq-in: rgba(0,0,0,.04);
+}
+html[data-sq-dark] {
+  --sq-fg: #f1f1f1; --sq-fg2: #aaaaaa; --sq-chip: rgba(255,255,255,.1); --sq-chip-hover: rgba(255,255,255,.2);
+  --sq-pop: #282828; --sq-line: rgba(255,255,255,.1); --sq-in: rgba(255,255,255,.06);
+}
+
+/* ---------- format chips (shared) ---------- */
+.sq-chips { display: inline-flex; gap: 4px; margin-left: auto; flex: none; }
+.sq-chip {
+  border: 0; border-radius: 6px; padding: 4px 8px; cursor: pointer; line-height: 1.2;
+  font: 600 12px "Roboto", Arial, sans-serif; letter-spacing: .02em; white-space: nowrap;
+  background: var(--sq-chip); color: var(--sq-fg);
+}
+.sq-chip:hover { background: var(--sq-accent); color: #fff; }
+.sq-chip[hidden] { display: none; }
+
+/* ---------- rows in ⋮ menus ---------- */
+.sq-rows { border-top: 1px solid var(--sq-line); padding: 4px 0; }
+.sq-row {
+  display: flex; align-items: center; gap: 16px; padding: 6px 12px 6px 16px; min-height: 36px;
+  color: var(--sq-fg); font: 400 14px "Roboto", Arial, sans-serif; cursor: default;
+}
+.sq-row .sq-row-icon { display: inline-flex; width: 24px; height: 24px; flex: none; }
+.sq-row .sq-row-label { white-space: nowrap; }
+
+/* ---------- player right-click menu (always dark) ----------
+   YouTube lays this menu out as a table; our rows use flex so their wide button
+   column doesn't squeeze YouTube's own labels. */
+.sq-ytp-block { border-bottom: 1px solid rgba(255,255,255,.12); padding: 4px 0; }
+.sq-ytp-item { display: flex !important; align-items: center; height: 40px; cursor: default; }
+.sq-ytp-item .ytp-menuitem-icon { flex: none; display: flex; align-items: center; }
+.sq-ytp-item .ytp-menuitem-label { flex: 1; white-space: nowrap; padding-right: 16px; color: #eee; }
+.sq-ytp-item .ytp-menuitem-icon svg { width: 24px; height: 24px; fill: #fff; }
+.sq-ytp-item .ytp-menuitem-content { flex: none; text-align: right; white-space: nowrap; padding-right: 12px; }
+.sq-ytp-item .sq-chip { background: rgba(255,255,255,.15); color: #fff; }
+.sq-ytp-item .sq-chip:hover { background: var(--sq-accent); }
+
+/* ---------- clip dialog ---------- */
+#sq-clip {
+  position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.45); font: 400 14px "Roboto", Arial, sans-serif;
+}
+#sq-clip .sq-clip-card {
+  width: min(360px, calc(100vw - 32px)); padding: 20px; border-radius: 12px;
+  background: var(--sq-pop); color: var(--sq-fg); box-shadow: 0 8px 40px rgba(0,0,0,.4);
+  display: flex; flex-direction: column; gap: 12px;
+}
+#sq-clip .sq-clip-title { font-size: 16px; font-weight: 500; }
+#sq-clip .sq-clip-row { display: flex; align-items: center; gap: 10px; }
+#sq-clip label { width: 40px; color: var(--sq-fg2); }
+#sq-clip .sq-in {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--sq-line);
+  background: var(--sq-in); color: var(--sq-fg); font: 500 15px "Roboto Mono", Consolas, monospace;
+}
+#sq-clip .sq-in:focus { outline: 2px solid var(--sq-accent); outline-offset: -1px; }
+#sq-clip .sq-err { color: #e53935; font-size: 13px; min-height: 16px; }
+#sq-clip .sq-clip-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#sq-clip .sq-clip-formats { display: inline-flex; gap: 6px; }
+#sq-clip .sq-clip-formats .sq-chip { padding: 8px 12px; font-size: 13px; }
+#sq-clip .sq-cancel { background: none; color: var(--sq-fg2); }
+#sq-clip .sq-cancel:hover { background: var(--sq-chip); color: var(--sq-fg); }
+
+/* ---------- toast ---------- */
+#sq-toast {
+  position: fixed; left: 50%; bottom: 24px; z-index: 99999; transform: translate(-50%, 20px);
+  padding: 10px 16px; border-radius: 8px; background: #212121; color: #fff;
+  font: 500 14px "Roboto", Arial, sans-serif; opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+#sq-toast.show { opacity: 1; transform: translate(-50%, 0); }

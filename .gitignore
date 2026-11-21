@@ -1,0 +1,6 @@
+key.pem
+*.pem
+tools/
+host/host.bat
+__pycache__/
+*.zip

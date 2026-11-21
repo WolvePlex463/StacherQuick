@@ -1,0 +1,7 @@
+{
+  "name": "com.stacherquick.host",
+  "description": "StacherQuick - runs Stacher7's yt-dlp",
+  "path": "host.bat",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://dmjfmkbmjpkebgbmiekcmdfchlikibgj/"]
+}
