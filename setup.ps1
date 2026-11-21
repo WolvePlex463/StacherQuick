@@ -1,5 +1,7 @@
 # StacherQuick setup: points the browser at the helper and makes sure yt-dlp + ffmpeg exist.
 # Run with setup.bat (no admin needed; everything goes in your user account).
+# -Yes: never prompt (downloads yt-dlp/ffmpeg/deno if missing). For scripts and AI agents.
+param([switch]$Yes)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $hostDir = Join-Path $root "host"
@@ -52,7 +54,7 @@ if (Test-Path (Join-Path $stacher "yt-dlp.exe")) {
     Say "yt-dlp and ffmpeg found." Green
 } else {
     Say "Stacher7 isn't installed and yt-dlp/ffmpeg weren't found."
-    $a = Read-Host "Download yt-dlp, ffmpeg and deno into $tools now? (about 150 MB) [Y/n]"
+    $a = if ($Yes) { "y" } else { Read-Host "Download yt-dlp, ffmpeg and deno into $tools now? (about 150 MB) [Y/n]" }
     if ($a -notmatch '^[nN]') {
         New-Item -ItemType Directory -Force $tools | Out-Null
         $tmp = Join-Path $env:TEMP "stacherquick-setup"
