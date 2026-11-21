@@ -17,7 +17,7 @@ MP4 uses `bv*[vcodec^=avc1]+ba[ext=m4a]/bv*+ba/b` (H.264 + AAC, plays everywhere
   No Stacher? Setup can download yt-dlp, ffmpeg and deno for you instead.
 
 ## Agent Prompt
-Not technical? Paste this into any AI agent that can use your computer and it will install StacherQuick for you:
+For AI agents with computer use:
 
 ```text
 Install StacherQuick on this Windows PC: download and unzip https://github.com/WolvePlex463/StacherQuick/releases/latest/download/StacherQuick.zip to my Documents folder, install Python 3 if it's missing, run setup.ps1 there with -Yes, then load its "extension" folder as an unpacked extension in my browser (or walk me through it) and confirm the StacherQuick icon shows a green dot.
