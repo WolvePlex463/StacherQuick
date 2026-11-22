@@ -370,17 +370,39 @@
         block = buildPlayerBlock(cm, url, wantList);
         panel.insertBefore(block, panelMenu);
       }
-      // YouTube sizes the menu from its own list each time it opens, so add our block's
-      // height (and width, if wider) on every open.
-      const menuH = parseFloat(panelMenu.style.height) || panelMenu.offsetHeight;
-      const h = menuH + block.offsetHeight;
-      const w = Math.max(parseFloat(cm.style.width) || cm.offsetWidth, block.scrollWidth);
-      for (const node of [cm, panel]) {
-        node.style.height = h + "px";
-        node.style.width = w + "px";
-      }
-      panelMenu.style.width = w + "px";
+      fitPlayerMenu(cm, panel, panelMenu, block);
     });
+  }
+
+  // YouTube re-measures the menu on every open, and that measurement includes whatever
+  // size we set last time. So size everything from the content itself (never from the
+  // current styles), which gives the same result no matter how often it runs.
+  function natural(node, prop) {
+    const old = node.style[prop];
+    node.style[prop] = "max-content";
+    const v = prop === "width" ? node.offsetWidth : node.offsetHeight;
+    node.style[prop] = old;
+    return v;
+  }
+  function fitPlayerMenu(cm, panel, panelMenu, block) {
+    let ytH = 0;
+    for (const item of panelMenu.children) ytH += item.offsetHeight;
+    const w = Math.ceil(Math.max(natural(panelMenu, "width"), natural(block, "width")));
+    const h = Math.ceil(ytH + block.offsetHeight);
+    for (const node of [cm, panel]) {
+      node.style.width = w + "px";
+      node.style.height = h + "px";
+    }
+    panelMenu.style.width = w + "px";
+    panelMenu.style.height = ytH + "px";
+    // Keep it inside the player (YouTube placed it using its own, smaller size).
+    const player = cm.closest(".html5-video-player");
+    if (player) {
+      const pw = player.clientWidth, ph = player.clientHeight;
+      const left = parseFloat(cm.style.left) || 0, top = parseFloat(cm.style.top) || 0;
+      if (left + w > pw) cm.style.left = Math.max(0, pw - w) + "px";
+      if (top + h > ph) cm.style.top = Math.max(0, ph - h) + "px";
+    }
   }
 
   function buildPlayerBlock(cm, url, wantList) {
