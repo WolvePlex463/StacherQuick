@@ -600,6 +600,7 @@
       const open = cm.style.display !== "none" && cm.offsetWidth > 0;
       if (!open) {
         if (card) card.hidden = true;
+        cm.classList.remove("sq-joined");
         return;
       }
       const url = () => playerVideo || currentPageVideo();
@@ -626,21 +627,37 @@
     if (pm) pm.style.width = ""; // YouTube never sets this one itself
   }
 
+  // The card is joined to the top of YouTube's menu so the two read as one menu: same
+  // background and blur, the menu's top corners squared off, a thin divider between.
+  // The card goes where you clicked and YouTube's items move down under it; near the
+  // bottom of the screen everything moves up just enough to fit.
+  // Only the menu's position is changed (YouTube sets it fresh on every open); its size
+  // is left alone.
+  const moved = new WeakMap(); // menu -> { base: YouTube's top, wrote: the top we set }
   function placeCard(cm, card) {
-    const gap = 6, pad = 4;
-    card.style.minWidth = cm.offsetWidth + "px";
-    const cw = card.offsetWidth, ch = card.offsetHeight;
-    const r = cm.getBoundingClientRect(); // on screen, to decide where there's room
-    let y = cm.offsetTop - ch - gap; // above the menu…
-    if (r.top - ch - gap < pad) {
-      // …or below it when there's no room above (and only if it fits there)
-      if (r.bottom + gap + ch <= innerHeight - pad) y = cm.offsetTop + cm.offsetHeight + gap;
-    }
-    let x = cm.offsetLeft;
-    const overflowRight = r.left + cw - (innerWidth - pad);
-    if (overflowRight > 0) x -= overflowRight;
-    card.style.left = x + "px";
-    card.style.top = y + "px";
+    const cs = getComputedStyle(cm);
+    card.style.width = cm.offsetWidth + "px";
+    card.style.backgroundColor = cs.backgroundColor;
+    card.style.backdropFilter = card.style.webkitBackdropFilter = cs.backdropFilter;
+    const rad = cs.borderTopLeftRadius;
+    card.style.borderRadius = `${rad} ${rad} 0 0`;
+    cm.classList.add("sq-joined");
+
+    const cur = parseFloat(cm.style.top);
+    if (isNaN(cur)) return;
+    let st = moved.get(cm);
+    if (!st || Math.abs(cur - st.wrote) > 0.5) st = { base: cur, wrote: NaN }; // YouTube just placed it
+    const ch = card.offsetHeight;
+    const baseOnScreen = cm.getBoundingClientRect().top - (cur - st.base);
+    // As low as fits on screen, but no lower than right under the cursor.
+    const lowestFit = st.base + (innerHeight - 4 - cm.offsetHeight - baseOnScreen);
+    const menuTop = Math.max(st.base, Math.min(st.base + ch, lowestFit));
+    const cardTop = menuTop - ch;
+    if (Math.abs(cur - menuTop) > 0.5) cm.style.top = menuTop + "px";
+    st.wrote = menuTop;
+    moved.set(cm, st);
+    card.style.left = cm.offsetLeft + "px";
+    card.style.top = cardTop + "px";
   }
 
   function buildPlayerCard(cm, url, wantList) {

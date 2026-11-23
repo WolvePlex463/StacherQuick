@@ -35,13 +35,15 @@ html[data-sq-dark] {
 
 /* ---------- player right-click menu: our own card next to YouTube's (always dark) ---------- */
 .sq-ytp-card {
-  position: absolute; z-index: 2301; box-sizing: border-box; padding: 6px 0; border-radius: 12px;
-  background: rgba(28,28,28,.92); box-shadow: 0 4px 18px rgba(0,0,0,.35);
-  font: 400 13px "Roboto", Arial, sans-serif; color: #eee; user-select: none; text-shadow: 0 0 2px rgba(0,0,0,.5);
+  position: absolute; z-index: 2301; box-sizing: border-box; padding: 8px 0 6px;
+  background: rgba(0,0,0,.6); border-bottom: 1px solid rgba(255,255,255,.12);
+  font: 500 13px "Roboto", Arial, Helvetica, sans-serif; color: #eee; user-select: none; text-shadow: 0 0 2px rgba(0,0,0,.5);
 }
+/* YouTube's menu with our card on top: square its top corners so they join. */
+.ytp-contextmenu.sq-joined { border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; }
 .sq-ytp-card[hidden] { display: none; }
-.sq-ytp-item { display: flex !important; align-items: center; height: 40px; padding: 0 0 0 12px; cursor: default; }
-.sq-ytp-item .ytp-menuitem-icon { flex: none; display: flex; align-items: center; padding: 0 12px 0 0; }
+.sq-ytp-item { display: flex !important; align-items: center; height: 40px; padding: 0; cursor: default; }
+.sq-ytp-item .ytp-menuitem-icon { flex: none; display: flex; align-items: center; padding: 0 10px; }
 .sq-ytp-item .ytp-menuitem-label { flex: 1; white-space: nowrap; padding: 0 10px 0 0; color: #eee; }
 .sq-ytp-item .ytp-menuitem-icon svg { width: 24px; height: 24px; color: #f2588a; }
 .sq-ytp-item .ytp-menuitem-content { flex: none; text-align: right; white-space: nowrap; padding: 0 12px 0 0; }
