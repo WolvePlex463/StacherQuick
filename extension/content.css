@@ -2,11 +2,12 @@
    page's real background colour (YouTube's own flags aren't reliable). */
 :root {
   --sq-fg: #0f0f0f; --sq-fg2: #606060; --sq-chip: rgba(0,0,0,.05); --sq-chip-hover: rgba(0,0,0,.1); --sq-row-hover: rgba(0,0,0,.08);
-  --sq-pop: #ffffff; --sq-line: rgba(0,0,0,.1); --sq-accent: #e53935; --sq-in: rgba(0,0,0,.04);
+  --sq-pop: #ffffff; --sq-line: rgba(0,0,0,.1); --sq-accent: #ed316e; --sq-brand: #ed316e; --sq-in: rgba(0,0,0,.04);
 }
 html[data-sq-dark] {
   --sq-fg: #f1f1f1; --sq-fg2: #aaaaaa; --sq-chip: rgba(255,255,255,.1); --sq-chip-hover: rgba(255,255,255,.2); --sq-row-hover: rgba(255,255,255,.1);
   --sq-pop: #282828; --sq-line: rgba(255,255,255,.1); --sq-in: rgba(255,255,255,.06);
+  --sq-brand: #f2588a;
 }
 
 /* ---------- format chips (shared) ---------- */
@@ -25,7 +26,7 @@ html[data-sq-dark] {
   display: flex; align-items: center; gap: 16px; padding: 6px 12px 6px 16px; min-height: 36px;
   color: var(--sq-fg); font: 400 14px "Roboto", Arial, sans-serif; cursor: default;
 }
-.sq-row .sq-row-icon { display: inline-flex; width: 24px; height: 24px; flex: none; }
+.sq-row .sq-row-icon { display: inline-flex; width: 24px; height: 24px; flex: none; color: var(--sq-brand); }
 .sq-row .sq-row-label { white-space: nowrap; }
 /* Hover: the row lights up like YouTube's own items, and its chips step up so they stay visible on it. */
 .sq-row { transition: background .1s; }
@@ -41,34 +42,62 @@ html[data-sq-dark] {
 .sq-ytp-item { display: flex !important; align-items: center; height: 40px; cursor: default; }
 .sq-ytp-item .ytp-menuitem-icon { flex: none; display: flex; align-items: center; }
 .sq-ytp-item .ytp-menuitem-label { flex: 1; white-space: nowrap; padding-right: 16px; color: #eee; }
-.sq-ytp-item .ytp-menuitem-icon svg { width: 24px; height: 24px; fill: #fff; }
+.sq-ytp-item .ytp-menuitem-icon svg { width: 24px; height: 24px; color: #f2588a; }
 .sq-ytp-item .ytp-menuitem-content { flex: none; text-align: right; white-space: nowrap; padding-right: 12px; }
 .sq-ytp-item .sq-chip { background: rgba(255,255,255,.15); color: #fff; }
 .sq-ytp-item .sq-chip:hover { background: var(--sq-accent); }
 
-/* ---------- clip dialog ---------- */
+/* ---------- clip editor ---------- */
 #sq-clip {
   position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.45); font: 400 14px "Roboto", Arial, sans-serif;
+  background: rgba(0,0,0,.55); font: 400 14px "Roboto", Arial, sans-serif;
 }
 #sq-clip .sq-clip-card {
-  width: min(360px, calc(100vw - 32px)); padding: 20px; border-radius: 12px;
-  background: var(--sq-pop); color: var(--sq-fg); box-shadow: 0 8px 40px rgba(0,0,0,.4);
-  display: flex; flex-direction: column; gap: 12px;
+  width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 18px 20px; border-radius: 14px;
+  background: var(--sq-pop); color: var(--sq-fg); box-shadow: 0 8px 40px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; gap: 12px; box-sizing: border-box;
 }
 #sq-clip .sq-clip-title { font-size: 16px; font-weight: 500; }
-#sq-clip .sq-clip-row { display: flex; align-items: center; gap: 10px; }
-#sq-clip label { width: 40px; color: var(--sq-fg2); }
-#sq-clip .sq-in {
-  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--sq-line);
-  background: var(--sq-in); color: var(--sq-fg); font: 500 15px "Roboto Mono", Consolas, monospace;
+#sq-clip .sq-clip-screen { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; }
+#sq-clip .sq-clip-screen.off { aspect-ratio: auto; min-height: 64px; }
+#sq-clip .sq-clip-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
+#sq-clip .sq-clip-screen.off .sq-clip-frame { display: none; }
+#sq-clip .sq-clip-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px 20px; text-align: center; color: #ddd; font-size: 13px; }
+#sq-clip .sq-clip-note[hidden] { display: none; }
+
+/* timeline */
+#sq-clip .sq-tl-wrap { padding: 0 9px; }
+#sq-clip .sq-tl { position: relative; height: 34px; cursor: pointer; touch-action: none; }
+#sq-clip .sq-tl.off { opacity: .4; pointer-events: none; }
+#sq-clip .sq-tl-bar { position: absolute; left: 0; right: 0; top: 13px; height: 8px; border-radius: 4px; background: var(--sq-chip-hover); }
+#sq-clip .sq-tl-sel { position: absolute; top: 9px; height: 16px; border-radius: 4px; background: color-mix(in srgb, var(--sq-brand) 35%, transparent); border: 2px solid var(--sq-brand); box-sizing: border-box; }
+#sq-clip .sq-tl-head { position: absolute; top: 2px; width: 2px; height: 30px; margin-left: -1px; background: var(--sq-fg); border-radius: 1px; pointer-events: none; }
+#sq-clip .sq-tl-h {
+  position: absolute; top: 3px; width: 14px; height: 28px; margin-left: -7px; border-radius: 4px; cursor: ew-resize;
+  background: var(--sq-brand); box-shadow: 0 1px 4px rgba(0,0,0,.4); touch-action: none;
 }
-#sq-clip .sq-in:focus { outline: 2px solid var(--sq-accent); outline-offset: -1px; }
-#sq-clip .sq-err { color: #e53935; font-size: 13px; min-height: 16px; }
+#sq-clip .sq-tl-h::after { content: ""; position: absolute; left: 5px; top: 8px; width: 4px; height: 12px; border-left: 1px solid rgba(255,255,255,.8); border-right: 1px solid rgba(255,255,255,.8); box-sizing: border-box; }
+#sq-clip .sq-tl-h:hover, #sq-clip .sq-tl-h.drag { transform: scaleY(1.12); }
+#sq-clip .sq-tl-times { display: flex; justify-content: space-between; color: var(--sq-fg2); font-size: 11px; margin-top: 2px; }
+
+/* controls */
+#sq-clip .sq-clip-ctrl, #sq-clip .sq-clip-times { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#sq-clip .sq-grow { flex: 1; }
+#sq-clip .sq-play { background: var(--sq-brand); color: #fff; padding: 7px 14px; font-size: 13px; }
+#sq-clip .sq-ghost { padding: 7px 10px; font-size: 13px; }
+#sq-clip .sq-ghost.on { background: var(--sq-brand); color: #fff; }
+#sq-clip .sq-clip-times label { color: var(--sq-fg2); }
+#sq-clip .sq-len { margin-left: auto; color: var(--sq-fg2); font-size: 13px; }
+#sq-clip .sq-in {
+  width: 96px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--sq-line);
+  background: var(--sq-in); color: var(--sq-fg); font: 500 14px "Roboto Mono", Consolas, monospace;
+}
+#sq-clip .sq-in:focus { outline: 2px solid var(--sq-brand); outline-offset: -1px; }
+#sq-clip .sq-err { color: var(--sq-brand); font-size: 13px; min-height: 16px; }
 #sq-clip .sq-clip-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #sq-clip .sq-clip-formats { display: inline-flex; gap: 6px; }
-#sq-clip .sq-clip-formats .sq-chip { padding: 8px 12px; font-size: 13px; }
-#sq-clip .sq-cancel { background: none; color: var(--sq-fg2); }
+#sq-clip .sq-clip-formats .sq-chip { padding: 8px 14px; font-size: 13px; }
+#sq-clip .sq-cancel { background: none; color: var(--sq-fg2); padding: 8px 12px; }
 #sq-clip .sq-cancel:hover { background: var(--sq-chip); color: var(--sq-fg); }
 
 /* ---------- toast ---------- */

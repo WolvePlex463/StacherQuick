@@ -157,60 +157,336 @@
     if (parts.some((n) => isNaN(n))) return NaN;
     return parts.reduce((acc, n) => acc * 60 + n, 0);
   }
-  function fmtTime(t) {
-    t = Math.max(0, Math.floor(t));
-    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  // 75.4 -> "1:15.4" (tenths only when they aren't zero)
+  function fmtTime(t, tenths = true) {
+    t = Math.max(0, Math.round(t * 10) / 10);
+    const whole = Math.floor(t), frac = Math.round((t - whole) * 10);
+    const h = Math.floor(whole / 3600), m = Math.floor((whole % 3600) / 60), s = whole % 60;
     const mm = String(m).padStart(h ? 2 : 1, "0"), ss = String(s).padStart(2, "0");
-    return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+    return (h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`) + (tenths && frac ? "." + frac : "");
   }
   function pageVideoEl() {
     return document.querySelector("#movie_player video, .html5-video-player video");
   }
+  function videoIdOf(url) {
+    try {
+      const u = new URL(url);
+      return u.searchParams.get("v") || (u.pathname.match(/^\/(?:shorts|live|embed)\/([\w-]{6,})/) || [])[1] || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Small wrapper around a YouTube embed, driven through its postMessage API.
+  function embedPlayer(id, startAt, onUpdate) {
+    const frame = el("iframe", "sq-clip-frame");
+    frame.allow = "autoplay; encrypted-media";
+    frame.src =
+      `https://www.youtube.com/embed/${encodeURIComponent(id)}?enablejsapi=1&controls=0&disablekb=1&rel=0` +
+      `&playsinline=1&iv_load_policy=3&fs=0&start=${Math.floor(startAt)}&origin=${encodeURIComponent(location.origin)}`;
+    const st = { t: startAt, dur: 0, playing: false, error: null, at: performance.now() };
+    const post = (m) => frame.contentWindow && frame.contentWindow.postMessage(JSON.stringify({ ...m, id: "sq", channel: "widget" }), "*");
+    const onMsg = (e) => {
+      if (e.source !== frame.contentWindow) return;
+      let d;
+      try {
+        d = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch (_) {
+        return;
+      }
+      if (!d) return;
+      if (d.event === "onError") st.error = d.info;
+      const i = d.info;
+      if (d.event === "infoDelivery" && i) {
+        if (typeof i.currentTime === "number") {
+          st.t = i.currentTime;
+          st.at = performance.now();
+        }
+        if (i.duration) st.dur = i.duration;
+        if (typeof i.playerState === "number") st.playing = i.playerState === 1;
+      }
+      onUpdate();
+    };
+    window.addEventListener("message", onMsg);
+    frame.addEventListener("load", () => {
+      post({ event: "listening" });
+      // Keep asking until the player answers (it ignores us while it's still booting).
+      let n = 0;
+      const ping = setInterval(() => (st.dur || ++n > 20 ? clearInterval(ping) : post({ event: "listening" })), 250);
+    });
+    const cmd = (func, args = []) => post({ event: "command", func, args });
+    return {
+      frame,
+      st,
+      // currentTime, extrapolated between the player's ~4/s reports so the playhead moves smoothly
+      now: () => (st.playing ? st.t + (performance.now() - st.at) / 1000 : st.t),
+      seek(t) {
+        st.t = t;
+        st.at = performance.now();
+        cmd("seekTo", [t, true]);
+      },
+      play: () => cmd("playVideo"),
+      pause: () => {
+        st.playing = false;
+        cmd("pauseVideo");
+      },
+      destroy: () => window.removeEventListener("message", onMsg),
+    };
+  }
+
+  // Preview straight from the video on this page: frames are drawn onto a canvas, and
+  // play/seek drive the page's own player. No embed needed, so it always works.
+  function pagePlayer(video, onUpdate) {
+    const canvas = el("canvas", "sq-clip-frame");
+    const ctx = canvas.getContext("2d");
+    const evs = ["play", "pause", "seeked", "durationchange", "loadedmetadata"];
+    evs.forEach((e) => video.addEventListener(e, onUpdate));
+    return {
+      frame: canvas,
+      st: {
+        get dur() {
+          return isFinite(video.duration) ? video.duration : 0;
+        },
+        get playing() {
+          return !video.paused;
+        },
+        error: null,
+      },
+      now: () => video.currentTime,
+      seek: (t) => (video.currentTime = t),
+      play: () => video.play().catch(() => {}),
+      pause: () => video.pause(),
+      draw() {
+        const dpr = devicePixelRatio || 1;
+        const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+        if (!w || !h) return;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (!vw || !vh) return;
+        const k = Math.min(w / vw, h / vh), dw = vw * k, dh = vh * k;
+        try {
+          ctx.drawImage(video, (w - dw) / 2, (h - dh) / 2, dw, dh);
+        } catch (_) {}
+      },
+      destroy: () => evs.forEach((e) => video.removeEventListener(e, onUpdate)),
+    };
+  }
 
   function openClip(url, samePage) {
     document.getElementById("sq-clip")?.remove();
-    const video = samePage ? pageVideoEl() : null;
-    const now = video ? video.currentTime : 0;
+    const id = videoIdOf(url);
+    const pageVid = samePage ? pageVideoEl() : null;
+    const now = pageVid ? pageVid.currentTime : 0;
+    const wasPlaying = pageVid && !pageVid.paused;
+    if (wasPlaying) pageVid.pause();
 
-    const start = el("input", "sq-in");
-    start.value = fmtTime(now);
-    const end = el("input", "sq-in");
-    end.value = fmtTime(video && isFinite(video.duration) ? Math.min(video.duration, now + 30) : now + 30);
-    for (const i of [start, end]) {
+    let dur = pageVid && isFinite(pageVid.duration) ? pageVid.duration : 0;
+    let a = now, b = dur ? Math.min(dur, now + 30) : now + 30;
+    let looping = false;
+
+    const startIn = el("input", "sq-in");
+    const endIn = el("input", "sq-in");
+    for (const i of [startIn, endIn]) {
       i.placeholder = "m:ss";
       i.spellcheck = false;
     }
-    const nowBtn = (input) => {
-      const b = chip("Now", "Use the video's current time", () => {
-        const v = pageVideoEl();
-        if (v) input.value = fmtTime(v.currentTime);
-      }, "sq-now");
-      if (!video) b.hidden = true;
-      return b;
-    };
+    const lenLabel = el("span", "sq-len");
     const err = el("div", "sq-err");
+
+    // ---- preview ----
+    const screen = el("div", "sq-clip-screen");
+    // The video you're watching previews from the page's own player; any other video
+    // (from a feed's ⋮ menu) needs a YouTube embed.
+    const player = pageVid ? pagePlayer(pageVid, () => render()) : id ? embedPlayer(id, a, () => render()) : null;
+    if (player) screen.append(player.frame);
+    const note = el("div", "sq-clip-note", player ? "Loading preview…" : "No preview for this link.");
+    screen.append(note);
+
+    // ---- timeline ----
+    const sel = el("div", "sq-tl-sel");
+    const hA = el("div", "sq-tl-h sq-tl-a");
+    const hB = el("div", "sq-tl-h sq-tl-b");
+    const head = el("div", "sq-tl-head");
+    const track = el("div", "sq-tl", el("div", "sq-tl-bar"), sel, head, hA, hB);
+    const tlStart = el("span", "", "0:00");
+    const tlEnd = el("span", "", "");
+    const playBtn = chip("▶ Play clip", "Play the selected part (Space)", () => togglePlay(), "sq-play");
+    const loopBtn = chip("↻ Loop", "Repeat the clip while previewing", () => {
+      looping = !looping;
+      loopBtn.classList.toggle("on", looping);
+    }, "sq-ghost");
+    const setA = chip("[ Set start", "Start the clip at the playhead ( [ )", () => setFromHead("a"), "sq-ghost");
+    const setB = chip("Set end ]", "End the clip at the playhead ( ] )", () => setFromHead("b"), "sq-ghost");
+
+    const clampAll = () => {
+      const max = dur || Infinity;
+      a = Math.max(0, Math.min(a, max));
+      b = Math.max(0, Math.min(b, max));
+      if (b - a < 0.5) b = Math.min(max, a + 0.5);
+      if (b - a < 0.5) a = Math.max(0, b - 0.5);
+    };
+    const pct = (t) => (dur ? (t / dur) * 100 : 0) + "%";
+
+    function render(fromInput) {
+      if (player) {
+        if (player.st.dur && !dur) {
+          dur = player.st.dur;
+          clampAll();
+        }
+        if (player.st.error) {
+          note.textContent =
+            player.st.error === 101 || player.st.error === 150
+              ? "This video can't be previewed here (the uploader turned off embedding). You can still type the times."
+              : "Preview unavailable. You can still type the times.";
+          note.hidden = false;
+          screen.classList.add("off");
+        } else note.hidden = !!player.st.dur;
+      }
+      track.classList.toggle("off", !dur);
+      sel.style.left = pct(a);
+      sel.style.width = dur ? ((b - a) / dur) * 100 + "%" : "0";
+      hA.style.left = pct(a);
+      hB.style.left = pct(b);
+      if (!fromInput) {
+        if (document.activeElement !== startIn) startIn.value = fmtTime(a);
+        if (document.activeElement !== endIn) endIn.value = fmtTime(b);
+      }
+      tlEnd.textContent = dur ? fmtTime(dur, false) : "";
+      lenLabel.textContent = "Length " + fmtTime(b - a);
+      playBtn.textContent = player && player.st.playing ? "❚❚ Pause" : "▶ Play clip";
+    }
+
+    // playhead + stop/loop at the clip's end
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      if (player && player.draw) player.draw();
+      if (!player || !dur) return;
+      const t = player.now();
+      head.style.left = pct(Math.min(t, dur));
+      if (player.st.playing && t >= b) {
+        if (looping) player.seek(a);
+        else {
+          player.pause();
+          player.seek(b);
+          render();
+        }
+      }
+    };
+    raf = requestAnimationFrame(tick);
+
+    function togglePlay() {
+      if (!player || player.st.error) return;
+      if (player.st.playing) return player.pause(), render();
+      const t = player.now();
+      if (t < a - 0.05 || t >= b - 0.05) player.seek(a);
+      player.play();
+    }
+    function setFromHead(which) {
+      if (!player || !dur) return;
+      const t = player.now();
+      if (which === "a") {
+        a = t;
+        if (b <= a + 0.5) b = Math.min(dur, a + 30);
+      } else {
+        b = t;
+        if (b <= a + 0.5) a = Math.max(0, b - 30);
+      }
+      clampAll();
+      render();
+    }
+
+    // dragging the handles / clicking the bar
+    const timeAt = (clientX) => {
+      const r = track.getBoundingClientRect();
+      return Math.round(Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * dur * 10) / 10;
+    };
+    const drag = (handle, which) =>
+      handle.addEventListener("pointerdown", (e) => {
+        if (!dur) return;
+        e.preventDefault();
+        e.stopPropagation();
+        handle.setPointerCapture(e.pointerId);
+        if (player) player.pause();
+        handle.classList.add("drag");
+        const move = (ev) => {
+          const t = timeAt(ev.clientX);
+          if (which === "a") a = Math.min(t, b - 0.5);
+          else b = Math.max(t, a + 0.5);
+          clampAll();
+          if (player) player.seek(which === "a" ? a : b); // live scrub so you can see the frame
+          render();
+        };
+        const up = () => {
+          handle.classList.remove("drag");
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", up);
+          handle.removeEventListener("pointercancel", up);
+        };
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", up);
+        handle.addEventListener("pointercancel", up);
+      });
+    drag(hA, "a");
+    drag(hB, "b");
+    track.addEventListener("pointerdown", (e) => {
+      if (!dur || !player || e.target === hA || e.target === hB) return;
+      player.seek(timeAt(e.clientX));
+    });
+
+    // typing times
+    const fromInputs = () => {
+      const s = parseTime(startIn.value), e = parseTime(endIn.value);
+      if (isNaN(s) || isNaN(e)) return (err.textContent = "Use times like 1:23 or 1:02:03.5");
+      if (e <= s) return (err.textContent = "The end has to be after the start.");
+      if (dur && s >= dur) return (err.textContent = "The start is past the end of the video.");
+      err.textContent = "";
+      a = s;
+      b = dur ? Math.min(e, dur) : e;
+      render(true);
+      return true;
+    };
+    for (const i of [startIn, endIn]) {
+      i.addEventListener("input", fromInputs);
+      i.addEventListener("change", () => fromInputs() && render());
+    }
+
     const close = () => {
+      cancelAnimationFrame(raf);
+      if (player) player.destroy();
+      // Put the page's video back where it was.
+      if (pageVid) {
+        pageVid.pause();
+        pageVid.currentTime = now;
+        if (wasPlaying) pageVid.play().catch(() => {});
+      }
       box.remove();
       document.removeEventListener("keydown", onKey, true);
     };
     const go = (f) => {
-      const s = parseTime(start.value), e = parseTime(end.value);
-      if (isNaN(s) || isNaN(e)) return (err.textContent = "Use times like 1:23 or 1:02:03.");
-      if (e <= s) return (err.textContent = "The end has to be after the start.");
-      send(url, f, { section: { start: s, end: e } });
+      if (!fromInputs()) return;
+      send(url, f, { section: { start: Math.round(a * 10) / 10, end: Math.round(b * 10) / 10 } });
       close();
     };
     const formats = el("div", "sq-clip-formats");
-    for (const [f, label] of FORMATS) {
-      const b = chip(label, "Download this clip as " + label, () => go(f));
-      formats.appendChild(b);
-    }
+    for (const [f, label] of FORMATS) formats.appendChild(chip(label, "Stash this clip as " + label, () => go(f)));
     const cancel = chip("Cancel", "Close", close, "sq-cancel");
+
     const card = el(
       "div", "sq-clip-card",
       el("div", "sq-clip-title", "Clip a section"),
-      el("div", "sq-clip-row", el("label", "", "Start"), start, nowBtn(start)),
-      el("div", "sq-clip-row", el("label", "", "End"), end, nowBtn(end)),
+      screen,
+      el("div", "sq-tl-wrap", track, el("div", "sq-tl-times", tlStart, tlEnd)),
+      el("div", "sq-clip-ctrl", playBtn, loopBtn, el("span", "sq-grow"), setA, setB),
+      el("div", "sq-clip-times",
+        el("label", "", "Start"), startIn,
+        el("label", "", "End"), endIn,
+        lenLabel),
       err,
       el("div", "sq-clip-foot", cancel, formats)
     );
@@ -218,15 +494,22 @@
     box.id = "sq-clip";
     box.addEventListener("mousedown", (e) => e.target === box && close());
     const onKey = (e) => {
-      // Only a real key press closes it: our own synthetic Escape (used to shut YouTube's
-      // menus) must not.
+      const typing = e.target === startIn || e.target === endIn;
+      // Only a real key press closes it: our own synthetic Escape (used to shut YouTube's menus) must not.
       if (e.key === "Escape" && e.isTrusted) close();
-      e.stopPropagation(); // keep YouTube's keyboard shortcuts (k, j, l, f…) out of the inputs
+      else if (!typing && e.key === " ") {
+        e.preventDefault();
+        togglePlay();
+      } else if (!typing && e.key === "[") setFromHead("a");
+      else if (!typing && e.key === "]") setFromHead("b");
+      else if (typing && e.key === "Enter") fromInputs() && render();
+      e.stopPropagation(); // keep YouTube's own shortcuts (k, j, l, f…) out of the dialog
     };
     document.addEventListener("keydown", onKey, true);
     document.documentElement.appendChild(box);
-    start.focus();
-    start.select();
+    clampAll();
+    if (pageVid) player.seek(a);
+    render();
   }
 
   chrome.runtime.onMessage.addListener((msg) => {
@@ -346,12 +629,34 @@
       const player = e.target.closest && e.target.closest(".html5-video-player");
       if (!player) return;
       playerVideo = videoFor(player);
-      // YouTube builds/shows the menu right after this event.
+      watchPlayer(player);
+      // Fallback for the very first open, in case the menu shows up some other way.
       setTimeout(() => decoratePlayerMenu(), 0);
-      setTimeout(() => decoratePlayerMenu(), 60);
     },
     true
   );
+
+  // YouTube builds and sizes the menu right after the contextmenu event, sometimes over a
+  // few steps. A MutationObserver runs right after each of those changes and before the
+  // browser paints, so every frame that reaches the screen already has our rows and size
+  // (a timer would let YouTube's own size flash first: the "jolt").
+  const menuObs = new MutationObserver(() => {
+    if (!alive()) return menuObs.disconnect();
+    decoratePlayerMenu();
+    menuObs.takeRecords(); // our own writes above; don't react to them
+  });
+  const watched = new WeakSet();
+  function watchPlayer(player) {
+    if (!watched.has(player)) {
+      watched.add(player);
+      menuObs.observe(player, { childList: true }); // the menu is created lazily, as a child
+    }
+    player.querySelectorAll(":scope > .ytp-contextmenu").forEach((cm) => {
+      if (watched.has(cm)) return;
+      watched.add(cm);
+      menuObs.observe(cm, { attributes: true, attributeFilter: ["style", "class"], childList: true, subtree: true });
+    });
+  }
 
   // Close YouTube's player menu the way it expects (Escape), so its open/closed state stays in sync.
   function closePlayerMenu(cm) {
@@ -371,6 +676,9 @@
 
   function decoratePlayerMenu() {
     document.querySelectorAll(".ytp-contextmenu").forEach((cm) => {
+      const player = cm.closest(".html5-video-player");
+      if (player) watchPlayer(player);
+      if (cm.style.display === "none") return; // closed: nothing to size
       const panel = cm.querySelector(".ytp-panel");
       const panelMenu = cm.querySelector(".ytp-panel-menu");
       if (!panel || !panelMenu) return;
