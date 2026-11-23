@@ -25,7 +25,7 @@ async function getSettings() {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     const add = (o) => chrome.contextMenus.create({ contexts: CTX, documentUrlPatterns: YT_PATTERNS, ...o });
-    add({ id: "sq-root", title: "Download with Stacher" });
+    add({ id: "sq-root", title: "Stash" });
     for (const [id, title] of Object.entries(FORMATS)) add({ id: "sq-" + id, parentId: "sq-root", title });
     add({ id: "sq-sep1", parentId: "sq-root", type: "separator" });
     add({ id: "sq-pl", parentId: "sq-root", title: "Whole playlist" });

@@ -244,12 +244,12 @@
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true }));
   }
 
-  // Rows for a menu: "Quick download" for the video, "Whole playlist" when there is one.
+  // Rows for a menu: "Stash" for the video, "Whole playlist" when there is one.
   function buildRows(url, onDone, samePage) {
     const frag = el("div", "sq-rows");
     if (hasVideo(url)) {
-      // "Quick download" so it isn't confused with YouTube's own (Premium) "Download" item.
-      const row = el("div", "sq-row", el("span", "sq-row-icon", icon()), el("span", "sq-row-label", "Quick download"));
+      // "Stash", not "Download", so it isn't confused with YouTube's own (Premium) "Download" item.
+      const row = el("div", "sq-row", el("span", "sq-row-icon", icon()), el("span", "sq-row-label", "Stash"));
       row.appendChild(
         formatChips(
           (f) => {
@@ -408,7 +408,7 @@
   function buildPlayerBlock(cm, url, wantList) {
     const block = el("div", "sq-ytp-block");
     {
-      const dl = playerItem("sq-ytp-dl", ICON_DL, "Download",
+      const dl = playerItem("sq-ytp-dl", ICON_DL, "Stash",
         formatChips(
           (f) => {
             send(url(), f);

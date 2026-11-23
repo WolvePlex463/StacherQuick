@@ -1,11 +1,11 @@
 /* Own colour tokens. Dark mode comes from data-sq-dark, which content.js sets from the
    page's real background colour (YouTube's own flags aren't reliable). */
 :root {
-  --sq-fg: #0f0f0f; --sq-fg2: #606060; --sq-chip: rgba(0,0,0,.05); --sq-chip-hover: rgba(0,0,0,.1);
+  --sq-fg: #0f0f0f; --sq-fg2: #606060; --sq-chip: rgba(0,0,0,.05); --sq-chip-hover: rgba(0,0,0,.1); --sq-row-hover: rgba(0,0,0,.08);
   --sq-pop: #ffffff; --sq-line: rgba(0,0,0,.1); --sq-accent: #e53935; --sq-in: rgba(0,0,0,.04);
 }
 html[data-sq-dark] {
-  --sq-fg: #f1f1f1; --sq-fg2: #aaaaaa; --sq-chip: rgba(255,255,255,.1); --sq-chip-hover: rgba(255,255,255,.2);
+  --sq-fg: #f1f1f1; --sq-fg2: #aaaaaa; --sq-chip: rgba(255,255,255,.1); --sq-chip-hover: rgba(255,255,255,.2); --sq-row-hover: rgba(255,255,255,.1);
   --sq-pop: #282828; --sq-line: rgba(255,255,255,.1); --sq-in: rgba(255,255,255,.06);
 }
 
@@ -27,6 +27,12 @@ html[data-sq-dark] {
 }
 .sq-row .sq-row-icon { display: inline-flex; width: 24px; height: 24px; flex: none; }
 .sq-row .sq-row-label { white-space: nowrap; }
+/* Hover: the row lights up like YouTube's own items, and its chips step up so they stay visible on it. */
+.sq-row { transition: background .1s; }
+.sq-row:hover { background: var(--sq-row-hover); }
+.sq-row:hover .sq-chip:not(:hover) { background: var(--sq-chip-hover); }
+.sq-ytp-item:hover { background: rgba(255,255,255,.1); }
+.sq-ytp-item:hover .sq-chip:not(:hover) { background: rgba(255,255,255,.22); }
 
 /* ---------- player right-click menu (always dark) ----------
    YouTube lays this menu out as a table; our rows use flex so their wide button
