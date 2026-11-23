@@ -32,20 +32,25 @@ html[data-sq-dark] {
 .sq-row { transition: background .1s; }
 .sq-row:hover { background: var(--sq-row-hover); }
 .sq-row:hover .sq-chip:not(:hover) { background: var(--sq-chip-hover); }
+
+/* ---------- player right-click menu: our own card next to YouTube's (always dark) ---------- */
+.sq-ytp-card {
+  position: absolute; z-index: 2301; box-sizing: border-box; padding: 6px 0; border-radius: 12px;
+  background: rgba(28,28,28,.92); box-shadow: 0 4px 18px rgba(0,0,0,.35);
+  font: 400 13px "Roboto", Arial, sans-serif; color: #eee; user-select: none; text-shadow: 0 0 2px rgba(0,0,0,.5);
+}
+.sq-ytp-card[hidden] { display: none; }
+.sq-ytp-item { display: flex !important; align-items: center; height: 40px; padding: 0 0 0 12px; cursor: default; }
+.sq-ytp-item .ytp-menuitem-icon { flex: none; display: flex; align-items: center; padding: 0 12px 0 0; }
+.sq-ytp-item .ytp-menuitem-label { flex: 1; white-space: nowrap; padding: 0 10px 0 0; color: #eee; }
+.sq-ytp-item .ytp-menuitem-icon svg { width: 24px; height: 24px; color: #f2588a; }
+.sq-ytp-item .ytp-menuitem-content { flex: none; text-align: right; white-space: nowrap; padding: 0 12px 0 0; }
+.sq-ytp-item .sq-chip { background: rgba(255,255,255,.15); color: #fff; }
+.sq-ytp-card .sq-chip { padding: 4px 7px; }
+.sq-ytp-card .sq-chips { gap: 3px; }
+.sq-ytp-item .sq-chip:hover { background: var(--sq-accent); }
 .sq-ytp-item:hover { background: rgba(255,255,255,.1); }
 .sq-ytp-item:hover .sq-chip:not(:hover) { background: rgba(255,255,255,.22); }
-
-/* ---------- player right-click menu (always dark) ----------
-   YouTube lays this menu out as a table; our rows use flex so their wide button
-   column doesn't squeeze YouTube's own labels. */
-.sq-ytp-block { border-bottom: 1px solid rgba(255,255,255,.12); padding: 4px 0; }
-.sq-ytp-item { display: flex !important; align-items: center; height: 40px; cursor: default; }
-.sq-ytp-item .ytp-menuitem-icon { flex: none; display: flex; align-items: center; }
-.sq-ytp-item .ytp-menuitem-label { flex: 1; white-space: nowrap; padding-right: 16px; color: #eee; }
-.sq-ytp-item .ytp-menuitem-icon svg { width: 24px; height: 24px; color: #f2588a; }
-.sq-ytp-item .ytp-menuitem-content { flex: none; text-align: right; white-space: nowrap; padding-right: 12px; }
-.sq-ytp-item .sq-chip { background: rgba(255,255,255,.15); color: #fff; }
-.sq-ytp-item .sq-chip:hover { background: var(--sq-accent); }
 
 /* ---------- clip mode: trim bar inside the player (always on dark video) ---------- */
 /* Keep the player's controls up while clipping, and swap the progress bar for ours. */

@@ -538,29 +538,32 @@
       const player = e.target.closest && e.target.closest(".html5-video-player");
       if (!player) return;
       playerVideo = videoFor(player);
-      watchPlayer(player);
+      watchMenus(player);
       // Fallback for the very first open, in case the menu shows up some other way.
       setTimeout(() => decoratePlayerMenu(), 0);
     },
     true
   );
 
-  // YouTube builds and sizes the menu right after the contextmenu event, sometimes over a
-  // few steps. A MutationObserver runs right after each of those changes and before the
-  // browser paints, so every frame that reaches the screen already has our rows and size
-  // (a timer would let YouTube's own size flash first: the "jolt").
+  // YouTube builds, sizes and places the menu right after the contextmenu event, sometimes
+  // over a few steps. A MutationObserver runs right after each of those changes and before
+  // the browser paints, so our card is always drawn in step with the menu (no jolt).
   const menuObs = new MutationObserver(() => {
     if (!alive()) return menuObs.disconnect();
     decoratePlayerMenu();
     menuObs.takeRecords(); // our own writes above; don't react to them
   });
   const watched = new WeakSet();
-  function watchPlayer(player) {
-    if (!watched.has(player)) {
-      watched.add(player);
-      menuObs.observe(player, { childList: true }); // the menu is created lazily, as a child
+  // YouTube creates the menu lazily, and depending on the player version puts it inside the
+  // player or straight on <body>. Watch both places for it to appear, then watch the menu.
+  function watchMenus(player) {
+    for (const host of [player, document.body]) {
+      if (host && !watched.has(host)) {
+        watched.add(host);
+        menuObs.observe(host, { childList: true });
+      }
     }
-    player.querySelectorAll(":scope > .ytp-contextmenu").forEach((cm) => {
+    document.querySelectorAll(".ytp-contextmenu").forEach((cm) => {
       if (watched.has(cm)) return;
       watched.add(cm);
       menuObs.observe(cm, { attributes: true, attributeFilter: ["style", "class"], childList: true, subtree: true });
@@ -583,85 +586,91 @@
     return item;
   }
 
+  // Our rows live in their own small card that sits right above (or below) YouTube's menu,
+  // never inside it. YouTube sizes its menu itself on every open; whenever we resized it
+  // too, the two fought (a scrollbar, a menu that grew wide). Now we never touch it.
+  const cards = new WeakMap(); // YouTube menu -> our card
   function decoratePlayerMenu() {
     document.querySelectorAll(".ytp-contextmenu").forEach((cm) => {
-      const player = cm.closest(".html5-video-player");
-      if (player) watchPlayer(player);
-      if (cm.style.display === "none") return; // closed: nothing to size
-      const panel = cm.querySelector(".ytp-panel");
-      const panelMenu = cm.querySelector(".ytp-panel-menu");
-      if (!panel || !panelMenu) return;
+      const host = cm.parentElement;
+      if (!host) return;
+      watchMenus(cm.closest(".html5-video-player"));
+      cleanLegacy(cm);
+      let card = cards.get(cm);
+      const open = cm.style.display !== "none" && cm.offsetWidth > 0;
+      if (!open) {
+        if (card) card.hidden = true;
+        return;
+      }
       const url = () => playerVideo || currentPageVideo();
       const wantList = hasList(url() || "");
-      // Our rows live in their own block above YouTube's menu, which is laid out as a
-      // table: inside it, our wide button column would squeeze YouTube's labels.
-      let block = panel.querySelector(":scope > .sq-ytp-block");
-      const changed = !block || block.dataset.build !== BUILD || !!block.querySelector(".sq-ytp-pl") !== wantList;
-      if (changed) {
-        if (block) block.remove();
-        block = buildPlayerBlock(cm, url, wantList);
-        panel.insertBefore(block, panelMenu);
+      if (!card || !card.isConnected || card.dataset.build !== BUILD || !!card.querySelector(".sq-ytp-pl") !== wantList) {
+        if (card) card.remove();
+        card = buildPlayerCard(cm, url, wantList);
+        cards.set(cm, card);
       }
-      fitPlayerMenu(cm, panel, panelMenu, block);
+      // Same parent as the menu, so both are positioned in the same coordinates.
+      if (card.parentElement !== host) host.appendChild(card);
+      card.hidden = false;
+      placeCard(cm, card);
     });
   }
 
-  // YouTube re-measures the menu on every open, and that measurement includes whatever
-  // size we set last time. So size everything from the content itself (never from the
-  // current styles), which gives the same result no matter how often it runs.
-  function natural(node, prop) {
-    const old = node.style[prop];
-    node.style[prop] = "max-content";
-    const v = prop === "width" ? node.offsetWidth : node.offsetHeight;
-    node.style[prop] = old;
-    return v;
-  }
-  function fitPlayerMenu(cm, panel, panelMenu, block) {
-    let ytH = 0;
-    for (const item of panelMenu.children) ytH += item.offsetHeight;
-    const w = Math.ceil(Math.max(natural(panelMenu, "width"), natural(block, "width")));
-    const h = Math.ceil(ytH + block.offsetHeight);
-    for (const node of [cm, panel]) {
-      node.style.width = w + "px";
-      node.style.height = h + "px";
-    }
-    panelMenu.style.width = w + "px";
-    panelMenu.style.height = ytH + "px";
-    // Keep it inside the player (YouTube placed it using its own, smaller size).
-    const player = cm.closest(".html5-video-player");
-    if (player) {
-      const pw = player.clientWidth, ph = player.clientHeight;
-      const left = parseFloat(cm.style.left) || 0, top = parseFloat(cm.style.top) || 0;
-      if (left + w > pw) cm.style.left = Math.max(0, pw - w) + "px";
-      if (top + h > ph) cm.style.top = Math.max(0, ph - h) + "px";
-    }
+  // Undo what older versions of this extension did to YouTube's menu (rows inside it, a
+  // forced width), so an updated extension starts from YouTube's own menu.
+  function cleanLegacy(cm) {
+    if (cm.dataset.sqClean === BUILD) return;
+    cm.dataset.sqClean = BUILD;
+    cm.querySelectorAll(".sq-ytp-block").forEach((b) => b.remove());
+    const pm = cm.querySelector(".ytp-panel-menu");
+    if (pm) pm.style.width = ""; // YouTube never sets this one itself
   }
 
-  function buildPlayerBlock(cm, url, wantList) {
-    const block = el("div", "sq-ytp-block");
-    block.dataset.build = BUILD;
-    {
-      const dl = playerItem("sq-ytp-dl", ICON_DL, "Stash",
-        formatChips(
-          (f) => {
-            send(url(), f);
-            closePlayerMenu(cm);
-          },
-          () => {
-            closePlayerMenu(cm);
-            startClip(url());
-          }
-        ));
-      block.appendChild(dl);
+  function placeCard(cm, card) {
+    const gap = 6, pad = 4;
+    card.style.minWidth = cm.offsetWidth + "px";
+    const cw = card.offsetWidth, ch = card.offsetHeight;
+    const r = cm.getBoundingClientRect(); // on screen, to decide where there's room
+    let y = cm.offsetTop - ch - gap; // above the menu…
+    if (r.top - ch - gap < pad) {
+      // …or below it when there's no room above (and only if it fits there)
+      if (r.bottom + gap + ch <= innerHeight - pad) y = cm.offsetTop + cm.offsetHeight + gap;
     }
+    let x = cm.offsetLeft;
+    const overflowRight = r.left + cw - (innerWidth - pad);
+    if (overflowRight > 0) x -= overflowRight;
+    card.style.left = x + "px";
+    card.style.top = y + "px";
+  }
+
+  function buildPlayerCard(cm, url, wantList) {
+    const card = el("div", "sq-ytp-card");
+    card.dataset.build = BUILD;
+    // Clicks in the card are ours: don't let YouTube take them as clicks on the video.
+    for (const ev of ["click", "mousedown", "mouseup", "pointerdown", "dblclick", "contextmenu"]) card.addEventListener(ev, (e) => e.stopPropagation());
+    const done = () => {
+      card.hidden = true;
+      closePlayerMenu(cm);
+    };
+    card.appendChild(playerItem("sq-ytp-dl", ICON_DL, "Stash",
+      formatChips(
+        (f) => {
+          send(url(), f);
+          done();
+        },
+        () => {
+          done();
+          startClip(url());
+        }
+      )));
     if (wantList) {
-      block.appendChild(playerItem("sq-ytp-pl", ICON_LIST, "Whole playlist",
+      card.appendChild(playerItem("sq-ytp-pl", ICON_LIST, "Whole playlist",
         formatChips((f) => {
           send(url(), f, { playlist: true });
-          closePlayerMenu(cm);
+          done();
         })));
     }
-    return block;
+    return card;
   }
 
   // =========================================================
