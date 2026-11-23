@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StacherQuick",
-  "version": "2.4.0",
+  "version": "2.2.0",
   "description": "Unofficial Stacher7 companion: one-click YouTube downloads (MP4 / MP3 / WAV) from YouTube's own menus.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqyxqO1X80+OAwf03xtYlJ4ovdnsU+qw29ZoSyAPIV0SXnkeCmYh9/cBiXEUuTn5dmveJ7Em/S7hdAkCO8KN3sCX7RpnJo1kkQetwydHgMvhXB+jo+Zclv67E2azYHI53nGji6sxs/0p96nyK/TnIQoFoluCAnwBjKCU35tY5jUVOfwKLFo5N9Rn2rZWymUGpVOYabQhbU41nLNLVFztqnLfbA8gQkNIUxpFKTcQBci4CeX18HaCwjPGYe5sqsg8IwTyLI1FXALGrsBTL2heQrQdbpfReLSYngS81bjJdF3hxnwqzs0p/BwPc+6057kF5MVxxUMp51kiqblQ1E4SAQwIDAQAB",
   "permissions": ["contextMenus", "nativeMessaging", "storage", "notifications"],

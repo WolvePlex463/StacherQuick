@@ -257,6 +257,7 @@
     }
     const closeBtn = el("button", "sq-tb-btn sq-tb-close", icon(ICON_X));
     closeBtn.title = "Stop clipping (Esc)";
+    closeBtn.addEventListener("click", () => exitClip());
     const pill = el("div", "sq-tb-pill", playBtn, range, len, el("span", "sq-tb-sep"), fmts, closeBtn);
     const root = el("div", "sq-trim", pill, track);
     // Clicks on our controls must not reach YouTube (which would play/pause the video).
