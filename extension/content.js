@@ -612,8 +612,10 @@
       }
       // Same parent as the menu, so both are positioned in the same coordinates.
       if (card.parentElement !== host) host.appendChild(card);
+      card.style.opacity = getComputedStyle(cm).opacity; // in step from the very first frame
       card.hidden = false;
       placeCard(cm, card);
+      followFade(cm, card);
     });
   }
 
@@ -639,7 +641,8 @@
     card.style.width = cm.offsetWidth + "px";
     card.style.backgroundColor = cs.backgroundColor;
     card.style.backdropFilter = card.style.webkitBackdropFilter = cs.backdropFilter;
-    const rad = cs.borderTopLeftRadius;
+    // Bottom corners: we square the menu's top ones, so those read 0 after the first pass.
+    const rad = cs.borderBottomLeftRadius;
     card.style.borderRadius = `${rad} ${rad} 0 0`;
     cm.classList.add("sq-joined");
 
@@ -658,6 +661,20 @@
     moved.set(cm, st);
     card.style.left = cm.offsetLeft + "px";
     card.style.top = cardTop + "px";
+  }
+
+  // YouTube fades its menu in and out (a short opacity transition). Copy the menu's
+  // opacity every frame so the card fades with it instead of popping in or lingering.
+  const fading = new WeakSet();
+  function followFade(cm, card) {
+    if (fading.has(card)) return;
+    fading.add(card);
+    const step = () => {
+      if (card.hidden || !card.isConnected) return fading.delete(card);
+      card.style.opacity = getComputedStyle(cm).opacity;
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
 
   function buildPlayerCard(cm, url, wantList) {
