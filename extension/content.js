@@ -239,11 +239,27 @@
   function pagePlayer(video, onUpdate) {
     const canvas = el("canvas", "sq-clip-frame");
     const ctx = canvas.getContext("2d");
+    let frozen = false; // keep showing the last drawn frame while the video moves elsewhere
+    let waiting = false;
+    const onWait = () => ((waiting = true), onUpdate());
+    const onGo = () => ((waiting = false), onUpdate());
     const evs = ["play", "pause", "seeked", "durationchange", "loadedmetadata"];
     evs.forEach((e) => video.addEventListener(e, onUpdate));
+    video.addEventListener("waiting", onWait);
+    ["playing", "canplay", "seeked"].forEach((e) => video.addEventListener(e, onGo));
     return {
       frame: canvas,
+      // Show the current frame but move the real video to t, so it starts buffering there now
+      // instead of when Play is pressed.
+      park(t) {
+        frozen = true;
+        if (Math.abs(video.currentTime - t) > 0.05) video.currentTime = t;
+      },
+      unfreeze: () => (frozen = false),
       st: {
+        get buffering() {
+          return waiting && !frozen;
+        },
         get dur() {
           return isFinite(video.duration) ? video.duration : 0;
         },
@@ -253,10 +269,17 @@
         error: null,
       },
       now: () => video.currentTime,
-      seek: (t) => (video.currentTime = t),
-      play: () => video.play().catch(() => {}),
+      seek: (t) => {
+        frozen = false;
+        video.currentTime = t;
+      },
+      play: () => {
+        frozen = false;
+        video.play().catch(() => {});
+      },
       pause: () => video.pause(),
       draw() {
+        if (frozen) return;
         const dpr = devicePixelRatio || 1;
         const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
         if (!w || !h) return;
@@ -273,7 +296,11 @@
           ctx.drawImage(video, (w - dw) / 2, (h - dh) / 2, dw, dh);
         } catch (_) {}
       },
-      destroy: () => evs.forEach((e) => video.removeEventListener(e, onUpdate)),
+      destroy() {
+        evs.forEach((e) => video.removeEventListener(e, onUpdate));
+        video.removeEventListener("waiting", onWait);
+        ["playing", "canplay", "seeked"].forEach((e) => video.removeEventListener(e, onGo));
+      },
     };
   }
 
@@ -305,7 +332,9 @@
     const player = pageVid ? pagePlayer(pageVid, () => render()) : id ? embedPlayer(id, a, () => render()) : null;
     if (player) screen.append(player.frame);
     const note = el("div", "sq-clip-note", player ? "Loading preview…" : "No preview for this link.");
-    screen.append(note);
+    const busy = el("div", "sq-clip-busy", "Buffering…");
+    busy.hidden = true;
+    screen.append(note, busy);
 
     // ---- timeline ----
     const sel = el("div", "sq-tl-sel");
@@ -359,6 +388,7 @@
       tlEnd.textContent = dur ? fmtTime(dur, false) : "";
       lenLabel.textContent = "Length " + fmtTime(b - a);
       playBtn.textContent = player && player.st.playing ? "❚❚ Pause" : "▶ Play clip";
+      busy.hidden = !(player && player.st.buffering);
     }
 
     // playhead + stop/loop at the clip's end
@@ -398,6 +428,7 @@
         if (b <= a + 0.5) a = Math.max(0, b - 30);
       }
       clampAll();
+      if (which === "b" && player.park && !player.st.playing) player.park(a);
       render();
     }
 
@@ -424,6 +455,8 @@
         };
         const up = () => {
           handle.classList.remove("drag");
+          // Dragging the end moved the video to the end; head back to the start now so Play is instant.
+          if (which === "b" && player && player.park) player.park(a);
           handle.removeEventListener("pointermove", move);
           handle.removeEventListener("pointerup", up);
           handle.removeEventListener("pointercancel", up);
