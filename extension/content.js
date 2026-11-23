@@ -8,6 +8,19 @@
     ["mp3", "MP3", "Audio"],
     ["wav", "WAV", "Lossless audio"],
   ];
+  // Rows we add are tagged with this, so after an extension update the page's leftover
+  // rows from the old version get rebuilt instead of reused.
+  const BUILD = chrome.runtime.getManifest().version;
+  // After the extension is reloaded, the old copy of this script keeps running in open
+  // tabs with a dead connection. It must stop touching the page.
+  const alive = () => {
+    try {
+      return !!chrome.runtime.id;
+    } catch (_) {
+      return false;
+    }
+  };
+
   const ICON_DL = "M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1zM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2z";
   const ICON_LIST = "M4 6h12v2H4zm0 5h12v2H4zm0 5h8v2H4zm14-2 4 3-4 3z";
 
@@ -300,12 +313,13 @@
       if (rows) rows.remove();
       return;
     }
-    if (rows && rows.dataset.url === menuVideo) return;
+    if (rows && rows.dataset.url === menuVideo && rows.dataset.build === BUILD) return;
     if (rows) rows.remove();
     const samePage = currentPageVideo() && menuVideo === currentPageVideo();
     rows = buildRows(menuVideo, closeYtPopup, samePage);
     if (!rows || !list) return;
     rows.dataset.url = menuVideo;
+    rows.dataset.build = BUILD;
     list.insertAdjacentElement("afterend", rows);
     refit(rows);
   }
@@ -328,6 +342,7 @@
   document.addEventListener(
     "contextmenu",
     (e) => {
+      if (!alive()) return;
       const player = e.target.closest && e.target.closest(".html5-video-player");
       if (!player) return;
       playerVideo = videoFor(player);
@@ -364,7 +379,7 @@
       // Our rows live in their own block above YouTube's menu, which is laid out as a
       // table: inside it, our wide button column would squeeze YouTube's labels.
       let block = panel.querySelector(":scope > .sq-ytp-block");
-      const changed = !block || !!block.querySelector(".sq-ytp-pl") !== wantList;
+      const changed = !block || block.dataset.build !== BUILD || !!block.querySelector(".sq-ytp-pl") !== wantList;
       if (changed) {
         if (block) block.remove();
         block = buildPlayerBlock(cm, url, wantList);
@@ -407,6 +422,7 @@
 
   function buildPlayerBlock(cm, url, wantList) {
     const block = el("div", "sq-ytp-block");
+    block.dataset.build = BUILD;
     {
       const dl = playerItem("sq-ytp-dl", ICON_DL, "Stash",
         formatChips(
@@ -447,6 +463,7 @@
 
   let pending = false;
   const obs = new MutationObserver(() => {
+    if (!alive()) return obs.disconnect();
     if (pending) return;
     pending = true;
     requestAnimationFrame(() => {
