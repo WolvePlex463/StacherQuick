@@ -2,7 +2,7 @@
 
 Unofficial companion for [Stacher7](https://stacher.io): download from YouTube straight from YouTube's own menus. Not made by or affiliated with the Stacher developers.
 
-- **MP4 / MP3 / WAV** from the ⋮ menu on any video, the player's right-click menu (next to Loop / Stats for nerds), or the browser right-click menu.
+- **Stash** as MP4 / MP3 / WAV from the ⋮ menu on any video, the top of the player's right-click menu, or the browser right-click menu.
 - **Whole playlist**, **clip a section** (trim right in YouTube's player: drag the start/end on the progress bar, preview, stash), **keyboard shortcut** (Alt+Shift+D: last format).
 - **Save to a set folder or ask every time**, with a separate folder for audio if you want.
 - **Login cookies** (Firefox, Chrome, Brave, Edge, Opera, Vivaldi, Chromium, Whale or a cookies.txt) for age-restricted / members-only videos. Used only when a video needs it.
